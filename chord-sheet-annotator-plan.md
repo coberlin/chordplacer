@@ -16,7 +16,7 @@ an annotated PDF. Annotations are saved as a JSON sidecar file.
 | Backend | Python + FastAPI | Best PDF ecosystem; lightweight API |
 | PDF rendering | PyMuPDF (`fitz`) | Fast, accurate page-to-image rendering |
 | PDF parsing | pdfplumber | Character-level x/y coordinates |
-| Syllable splitting | pyphen | LibreOffice-quality hyphenation dictionaries |
+| Syllable splitting | `hyphen` (JS) | Client-side splitting avoids round-trips; keeps UI responsive |
 | PDF export | PyMuPDF drawing API | Write chord text at exact coordinates |
 | Annotation storage | JSON sidecar file | Simple, no database needed |
 
@@ -30,18 +30,21 @@ PDF upload
     ▼
 FastAPI backend
     ├── PyMuPDF   → renders each page to PNG (for display)
-    └── pdfplumber → extracts character x/y coords per page
+    └── pdfplumber → extracts character x/y coords (per page, on demand)
             │
             ▼
-        pyphen splits each word into syllables
-        syllable x-ranges computed from character widths
+        Returns page PNG + character bounding boxes + PDF dimensions
             │
             ▼
 React frontend
+    ├── Receives character data, runs syllable splitting client-side
+    ├── Computes syllable x-ranges from character widths
     ├── Displays page PNG as background image
+    ├── Coordinate transform layer maps display coords ↔ PDF coords
     ├── Transparent overlay div captures clicks
     ├── Click → find nearest syllable → place chord label
-    └── Chord labels = absolutely positioned divs
+    ├── Chord labels = absolutely positioned divs
+    └── Undo/redo stack tracks all placement actions
             │
             ▼
 Save annotations → mysong.annotations.json
@@ -53,19 +56,42 @@ Export → FastAPI re-renders PDF with PyMuPDF drawing API
 
 ---
 
+## Coordinate System
+
+The backend returns PDF-space coordinates (points, 72 dpi) alongside the
+rendered PNG dimensions. The frontend maintains a **scale factor**:
+
+```
+scaleFactor = displayWidth / pdfPageWidth
+```
+
+- **Click → PDF coords:** divide click position by scaleFactor
+- **PDF coords → display:** multiply by scaleFactor
+- All annotation records store **PDF-space coordinates** so exports are exact
+- The scale factor updates on window resize / zoom to keep overlays aligned
+
+This is critical — without an explicit coordinate transform, chords will
+export to the wrong positions.
+
+---
+
 ## Data Model
 
 ### Annotation record
 ```json
 {
+  "id": "a1b2c3",
   "chord": "Am7",
   "page": 0,
-  "x": 142.5,
-  "y": 310.2,
+  "x_pdf": 142.5,
+  "y_pdf": 310.2,
   "word": "beau-ti-ful",
   "syllable_index": 1
 }
 ```
+
+Coordinates are stored in **PDF space** (points). The `id` field supports
+undo/redo and individual deletion.
 
 ### Sidecar file
 ```
@@ -81,15 +107,19 @@ mysong.annotations.json   ← list of annotation records
 
 **`/upload` endpoint**
 - Accepts PDF
-- Runs PyMuPDF to render all pages to PNG
-- Runs pdfplumber to extract all character bounding boxes
-- Runs pyphen to split words into syllables
-- Returns: page images + syllable map (page → syllable → x/y range)
+- Runs PyMuPDF to render page 1 to PNG (other pages rendered on demand)
+- Returns: first page image + PDF metadata (page count, page dimensions)
+
+**`/page/{n}` endpoint**
+- Renders page N to PNG via PyMuPDF
+- Extracts character bounding boxes for page N via pdfplumber
+- Returns: page image + character map (character → x/y/width/height)
+- Lazy per-page loading avoids long waits on upload for large PDFs
 
 **`/export` endpoint**
 - Accepts original PDF + annotation JSON
-- Uses PyMuPDF drawing API to write each chord name at its x/y position
-  above the correct line, in a monospace or chord-friendly font
+- Uses PyMuPDF drawing API to write each chord name at its PDF-space x/y
+  position above the correct line, in a monospace or chord-friendly font
 - Returns annotated PDF
 
 ### Frontend
@@ -97,19 +127,29 @@ mysong.annotations.json   ← list of annotation records
 **Page viewer**
 - Renders page PNG as `<img>` inside a positioned container
 - Overlaid transparent `<div>` receives click events
+- Coordinate transform layer converts between display and PDF space
 
 **Syllable snap logic**
-- On click, finds the syllable whose x-range contains the click x
+- Character data from backend is split into syllables client-side using `hyphen`
+- On click, converts click position to PDF coords, finds the syllable whose
+  x-range contains the click x
 - Places chord label at left edge of that syllable
 
 **Chord input**
-- Small popup or inline text field on click
-- Searchable dropdown via react-select with common chord names
-- Also accepts free-text input (for slash chords, sus4, etc.)
+- Plain text input field appears on click (MVP — fast to build, musicians
+  know their chord names)
+- Enter to confirm, Escape to cancel
+- Post-MVP: autocomplete or dropdown for common chord names
 
 **Chord labels**
 - Absolutely positioned `<div>` elements above the page image
-- Draggable for fine adjustment (optional enhancement)
+- Click to edit, right-click or X button to delete
+- Draggable for fine adjustment (post-MVP enhancement)
+
+**Undo / Redo**
+- Simple action stack: each add/edit/delete pushes to undo history
+- Ctrl+Z / Cmd+Z to undo, Ctrl+Shift+Z / Cmd+Shift+Z to redo
+- Essential even for MVP — accidental clicks are inevitable
 
 ---
 
@@ -121,12 +161,11 @@ fastapi
 uvicorn
 pymupdf          # PDF render + export
 pdfplumber       # Character coordinates
-pyphen           # Syllable splitting
 python-multipart # File upload support
 
 # JavaScript / React
 react
-react-select     # Chord name picker
+hyphen           # Client-side syllable splitting
 ```
 
 ---
@@ -134,11 +173,25 @@ react-select     # Chord name picker
 ## Build Order
 
 1. **PDF → PNG rendering** — get PyMuPDF serving page images via FastAPI
-2. **Character extraction** — get pdfplumber returning x/y coords for all characters
-3. **Syllable mapping** — integrate pyphen, compute syllable x-ranges
-4. **React overlay UI** — display page image, capture clicks, snap to syllable
-5. **Chord placement & storage** — place labels, save/load annotation JSON
-6. **PDF export** — write chord names into a new PDF with PyMuPDF
+2. **Character extraction** — get pdfplumber returning x/y coords per page (lazy)
+3. **React page viewer + coordinate transform** — display page image with correct scaling
+4. **Syllable mapping** — integrate `hyphen` on frontend, compute syllable x-ranges
+5. **Click → chord placement** — snap to syllable, show text input, place label
+6. **Undo/redo + edit/delete** — action stack, click-to-edit, delete
+7. **Save/load annotations** — persist to JSON sidecar file
+8. **PDF export** — write chord names into a new PDF with PyMuPDF
+
+---
+
+## Known Limitations
+
+- **Scanned / image-based PDFs are not supported.** pdfplumber requires
+  embedded text to extract character positions. If the PDF is a scanned image,
+  character extraction will return nothing. OCR support (e.g. via Tesseract)
+  could be added post-MVP.
+- **Complex PDF layouts** (multi-column, text boxes, rotated text) may produce
+  unexpected character coordinates. The tool is optimized for simple
+  single-column lyric sheets.
 
 ---
 
@@ -146,7 +199,10 @@ react-select     # Chord name picker
 
 - Double-spaced lyric sheets provide the vertical room needed; the exported
   chord names are written into that gap above each lyric line.
-- pyphen supports multiple languages; English is the default but the language
-  can be made configurable for non-English lyrics.
+- `hyphen` (JS) uses the same Hunspell/LibreOffice dictionaries as pyphen and
+  supports multiple languages; English is the default but the language can be
+  made configurable for non-English lyrics.
 - For export font, a monospace font (e.g. Courier) makes chord alignment more
   predictable, but any embedded TTF works with PyMuPDF.
+- All coordinates are stored in PDF space to ensure export fidelity regardless
+  of the display zoom level used during annotation.
