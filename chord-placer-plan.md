@@ -13,12 +13,15 @@ an annotated PDF. Annotations are saved as a JSON sidecar file.
 | Layer | Choice | Rationale |
 |---|---|---|
 | Frontend | React | Precise overlay rendering; easy absolute positioning |
+| Frontend linting | ESLint + Prettier | Consistent code style and formatting |
 | Backend | Python + FastAPI | Best PDF ecosystem; lightweight API |
+| Backend tooling | uv + Ruff | Fast dependency management; fast linting and formatting |
 | PDF rendering | PyMuPDF (`fitz`) | Fast, accurate page-to-image rendering |
 | PDF parsing | pdfplumber | Character-level x/y coordinates |
 | Syllable splitting | `hyphen` (JS) | Client-side splitting avoids round-trips; keeps UI responsive |
 | PDF export | PyMuPDF drawing API | Write chord text at exact coordinates |
 | Annotation storage | JSON sidecar file | Simple, no database needed |
+| Integration testing | Playwright | Browser-based E2E tests; introduced at build step 5 |
 
 ---
 
@@ -156,17 +159,42 @@ mysong.annotations.json   ← list of annotation records
 ## Libraries
 
 ```
-# Python
+# Python (managed with uv)
 fastapi
 uvicorn
 pymupdf          # PDF render + export
 pdfplumber       # Character coordinates
 python-multipart # File upload support
+pytest           # Unit testing
+pytest-cov       # Coverage reporting
+httpx            # Async test client for FastAPI
+ruff             # Linting + formatting (dev dependency)
 
 # JavaScript / React
 react
 hyphen           # Client-side syllable splitting
+@testing-library/react   # Component testing
+@testing-library/jest-dom # DOM matchers
+jest             # Test runner & coverage
+eslint           # Linting (dev dependency)
+prettier         # Code formatting (dev dependency)
+@playwright/test # Integration / E2E testing (dev dependency)
 ```
+
+---
+
+## Testing Requirements
+
+All code must maintain a **minimum of 80% unit test coverage** per user story.
+
+- **Backend (Python):** use `pytest` with `pytest-cov` for coverage measurement
+- **Frontend (React):** use Jest and React Testing Library with built-in coverage reporting
+- Coverage is measured per story — each story's new/modified code must meet the 80% threshold before the story is considered complete
+- Coverage reports should be generated as part of CI and reviewable locally via `pytest --cov` and `npm test -- --coverage`
+- **Integration testing (Playwright):** deferred until build step 5 (Chord Placement),
+  when the full upload → view → click → place flow is first testable end-to-end.
+  Playwright tests are added incrementally in steps 5–8 to verify cross-layer
+  behavior that unit tests alone cannot catch. Run via `npx playwright test`.
 
 ---
 
@@ -177,9 +205,13 @@ hyphen           # Client-side syllable splitting
 3. **React page viewer + coordinate transform** — display page image with correct scaling
 4. **Syllable mapping** — integrate `hyphen` on frontend, compute syllable x-ranges
 5. **Click → chord placement** — snap to syllable, show text input, place label
+   - *Playwright setup + first integration tests:* upload PDF → click syllable → verify chord appears
 6. **Undo/redo + edit/delete** — action stack, click-to-edit, delete
+   - *Integration tests:* edit chord, delete chord, undo/redo sequences
 7. **Save/load annotations** — persist to JSON sidecar file
+   - *Integration tests:* save annotations, reload page, verify annotations restored
 8. **PDF export** — write chord names into a new PDF with PyMuPDF
+   - *Integration tests:* place chords → export → verify download completes
 
 ---
 
