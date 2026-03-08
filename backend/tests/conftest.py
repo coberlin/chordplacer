@@ -24,3 +24,36 @@ def single_page_pdf_bytes() -> bytes:
     pdf_bytes = doc.tobytes()
     doc.close()
     return pdf_bytes
+
+
+@pytest.fixture
+def lyric_sheet_pdf_bytes() -> bytes:
+    """Create a PDF with multiple lines of lyrics for character extraction testing."""
+    doc = fitz.open()
+    page = doc.new_page(width=612, height=792)
+    page.insert_text((72, 100), "Amazing Grace how sweet")
+    page.insert_text((72, 130), "the sound that saved")
+    pdf_bytes = doc.tobytes()
+    doc.close()
+    return pdf_bytes
+
+
+@pytest.fixture
+def non_ascii_pdf_bytes() -> bytes:
+    """Create a PDF with non-ASCII characters."""
+    doc = fitz.open()
+    page = doc.new_page(width=612, height=792)
+    page.insert_text((72, 100), "Héllo Wörld café")
+    pdf_bytes = doc.tobytes()
+    doc.close()
+    return pdf_bytes
+
+
+@pytest.fixture
+def empty_page_pdf_bytes() -> bytes:
+    """Create a PDF with an empty page (no text)."""
+    doc = fitz.open()
+    doc.new_page(width=612, height=792)
+    pdf_bytes = doc.tobytes()
+    doc.close()
+    return pdf_bytes

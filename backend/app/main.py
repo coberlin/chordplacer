@@ -1,3 +1,4 @@
+import base64
 import tempfile
 import uuid
 from pathlib import Path
@@ -5,7 +6,9 @@ from pathlib import Path
 import fitz
 from fastapi import FastAPI, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import Response
+from fastapi.responses import JSONResponse, Response
+
+from app.charextract import extract_page_chars
 
 app = FastAPI(title="Chord Sheet Annotator")
 
@@ -96,11 +99,15 @@ async def get_page(page_num: int, session_id: str):
     except ValueError:
         raise HTTPException(status_code=404, detail=f"Page {page_num} not found")
 
-    return Response(
-        content=png_bytes,
-        media_type="image/png",
-        headers={
-            "X-Page-Width": str(width),
-            "X-Page-Height": str(height),
-        },
+    lines = extract_page_chars(pdf_path, page_num)
+
+    image_b64 = base64.b64encode(png_bytes).decode("ascii")
+
+    return JSONResponse(
+        content={
+            "image": image_b64,
+            "width": width,
+            "height": height,
+            "lines": lines,
+        }
     )

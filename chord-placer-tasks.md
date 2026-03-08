@@ -43,13 +43,13 @@
 
 ### Tasks
 
-- [ ] 2.1 Integrate pdfplumber to extract character data (char, x0, y0, x1, y1) for a given page
-- [ ] 2.2 Add character map to the `/page/{n}` response: list of `{char, x0, y0, x1, y1}` in PDF-point coordinates
-- [ ] 2.3 Group characters into words based on spatial proximity (gap threshold between characters)
-- [ ] 2.4 Include line-level grouping (y-coordinate clustering) so the frontend knows which line each word belongs to
-- [ ] 2.5 Handle edge cases: ligatures, whitespace-only regions, non-ASCII characters
-- [ ] 2.6 Write unit tests for character extraction, word grouping, and line clustering logic
-- [ ] 2.7 Verify ≥ 80% test coverage for all Story 2 code
+- [x] 2.1 Integrate pdfplumber to extract character data (char, x0, y0, x1, y1) for a given page
+- [x] 2.2 Add character map to the `/page/{n}` response: list of `{char, x0, y0, x1, y1}` in PDF-point coordinates
+- [x] 2.3 Group characters into words based on spatial proximity (gap threshold between characters)
+- [x] 2.4 Include line-level grouping (y-coordinate clustering) so the frontend knows which line each word belongs to
+- [x] 2.5 Handle edge cases: ligatures, whitespace-only regions, non-ASCII characters
+- [x] 2.6 Write unit tests for character extraction, word grouping, and line clustering logic
+- [x] 2.7 Verify ≥ 80% test coverage for all Story 2 code
 
 ### Acceptance Criteria
 
