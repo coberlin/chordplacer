@@ -17,16 +17,16 @@
 
 ### Tasks
 
-- [ ] 1.1 Set up FastAPI project using `uv` with uvicorn, pymupdf, pdfplumber, and python-multipart dependencies
-- [ ] 1.1a Configure Ruff for linting and formatting; add `ruff.toml` or `[tool.ruff]` section in `pyproject.toml`
-- [ ] 1.2 Create `/upload` endpoint that accepts a PDF file upload
-- [ ] 1.3 Store the uploaded PDF in a temp/session directory for later use
-- [ ] 1.4 Render page 1 to PNG using PyMuPDF on upload; return the image, page count, and page dimensions (width/height in PDF points)
-- [ ] 1.5 Create `/page/{n}` endpoint that renders page N to PNG on demand (lazy rendering)
-- [ ] 1.6 Return PDF metadata (page dimensions in points) alongside each page image so the frontend can compute scale factors
-- [ ] 1.7 Add CORS middleware so the React frontend can call the API
-- [ ] 1.8 Write unit tests for `/upload` and `/page/{n}` endpoints (valid PDF, invalid file, out-of-range page)
-- [ ] 1.9 Verify ≥ 80% test coverage for all Story 1 code
+- [x] 1.1 Set up FastAPI project using `uv` with uvicorn, pymupdf, pdfplumber, and python-multipart dependencies
+- [x] 1.1a Configure Ruff for linting and formatting; add `ruff.toml` or `[tool.ruff]` section in `pyproject.toml`
+- [x] 1.2 Create `/upload` endpoint that accepts a PDF file upload
+- [x] 1.3 Store the uploaded PDF in a temp/session directory for later use
+- [x] 1.4 Render page 1 to PNG using PyMuPDF on upload; return the image, page count, and page dimensions (width/height in PDF points)
+- [x] 1.5 Create `/page/{n}` endpoint that renders page N to PNG on demand (lazy rendering)
+- [x] 1.6 Return PDF metadata (page dimensions in points) alongside each page image so the frontend can compute scale factors
+- [x] 1.7 Add CORS middleware so the React frontend can call the API
+- [x] 1.8 Write unit tests for `/upload` and `/page/{n}` endpoints (valid PDF, invalid file, out-of-range page)
+- [x] 1.9 Verify ≥ 80% test coverage for all Story 1 code
 
 ### Acceptance Criteria
 
